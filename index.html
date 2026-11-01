@@ -29,6 +29,8 @@
   --green: #34c759;
   --red: #ff3b30;
   --orange: #ff9500;
+  --mark: #1e9e45;
+  --mark-sel: #30d158;
   --danger-bg: #fff5f5;
   --overlay: rgba(0,0,0,0.4);
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
@@ -39,7 +41,7 @@
     --bg: #000000; --card: #1c1c1e; --fg: #f2f2f7; --muted: #98989f; --faint: #48484a;
     --line: rgba(255,255,255,0.10); --line-strong: rgba(255,255,255,0.16);
     --field: #2c2c2e; --field-line: #48484a; --track: #2c2c2e; --press: #2c2c2e;
-    --ink: #f2f2f7; --on-ink: #1c1c1e; --blue: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a;
+    --ink: #f2f2f7; --on-ink: #1c1c1e; --blue: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a; --mark: #30d158; --mark-sel: #1f8a3b;
     --danger-bg: #3a1e1c; --overlay: rgba(0,0,0,0.6);
     color-scheme: dark;
   }
@@ -48,7 +50,7 @@
   --bg: #000000; --card: #1c1c1e; --fg: #f2f2f7; --muted: #98989f; --faint: #48484a;
   --line: rgba(255,255,255,0.10); --line-strong: rgba(255,255,255,0.16);
   --field: #2c2c2e; --field-line: #48484a; --track: #2c2c2e; --press: #2c2c2e;
-  --ink: #f2f2f7; --on-ink: #1c1c1e; --blue: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a;
+  --ink: #f2f2f7; --on-ink: #1c1c1e; --blue: #0a84ff; --green: #30d158; --red: #ff453a; --orange: #ff9f0a; --mark: #30d158; --mark-sel: #1f8a3b;
   --danger-bg: #3a1e1c; --overlay: rgba(0,0,0,0.6);
   color-scheme: dark;
 }
@@ -60,7 +62,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
 textarea,input{font:inherit;color:inherit;}
 
 /* faixas de largura total: o gutter fica no próprio elemento */
-.tabs,.header,.month-nav,.week-nav,.day-grid-wrap,.content{
+.tabs,.header,.streak,.month-nav,.week-nav,.day-grid-wrap,.content{
   padding-left:max(16px,env(safe-area-inset-left,0px));
   padding-right:max(16px,env(safe-area-inset-right,0px));
 }
@@ -74,6 +76,11 @@ textarea,input{font:inherit;color:inherit;}
 .header{background:var(--card);padding-block:16px 12px;border-bottom:0.5px solid var(--line);}
 .header h1{font-size:22px;font-weight:700;letter-spacing:-0.3px;}
 .header p{font-size:13px;color:var(--muted);margin-top:2px;}
+.streak{background:var(--card);padding-block:14px;border-bottom:0.5px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.streak-main{display:flex;align-items:baseline;gap:8px;}
+.streak-n{font-size:34px;font-weight:700;letter-spacing:-0.5px;line-height:1;font-variant-numeric:tabular-nums;}
+.streak-t{font-size:15px;font-weight:500;}
+.streak-side{font-size:12px;color:var(--muted);text-align:right;line-height:1.4;}
 
 .month-nav,.week-nav{display:flex;align-items:center;justify-content:space-between;background:var(--card);padding-block:10px;border-bottom:0.5px solid var(--line);}
 .nav-btn{font-size:20px;color:var(--muted);padding:4px 12px;border-radius:8px;min-width:44px;min-height:40px;}
@@ -87,13 +94,20 @@ textarea,input{font:inherit;color:inherit;}
 .day-grid-header{margin-bottom:4px;}
 .day-grid-header span{font-size:11px;color:var(--muted);font-weight:500;padding:4px 0;}
 .day-grid{gap:3px;}
-.day-cell{padding:6px 2px;border-radius:10px;font-size:13px;font-weight:500;color:var(--muted);position:relative;min-height:40px;display:flex;align-items:center;justify-content:center;}
+.day-cell{padding:6px 2px;border-radius:10px;font-size:13px;font-weight:500;color:var(--muted);position:relative;min-height:44px;display:flex;align-items:center;justify-content:center;}
 .day-cell.empty{cursor:default;}
 .day-cell.today{color:var(--fg);font-weight:700;}
 .day-cell.selected{background:var(--ink);color:var(--on-ink);}
 .day-cell.has-data::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--orange);}
 .day-cell.has-data.selected::after{background:var(--on-ink);}
 .day-cell:disabled{color:var(--faint);cursor:default;}
+.day-cell .num{position:relative;z-index:1;}
+.day-cell .mark{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;}
+.day-cell .mark line{stroke:var(--mark);stroke-width:2;stroke-linecap:round;vector-effect:non-scaling-stroke;}
+.day-cell.selected .mark line{stroke:var(--mark-sel);}
+.legend{font-size:11px;color:var(--muted);margin-top:8px;text-align:center;}
+.habit + .habit{margin-top:14px;}
+.habit-label{font-size:13px;font-weight:600;margin-bottom:8px;}
 
 .content{padding-block:16px;}
 .card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:10px;border:0.5px solid var(--line);}
@@ -209,6 +223,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
 <main>
 <div class="screen active" id="screen-hoje">
   <div class="header"><h1>Surfar a Vontade</h1><p id="dayCount"></p></div>
+  <div class="streak" id="streak" aria-live="polite"></div>
   <div class="month-nav">
     <button class="nav-btn" id="mPrev" aria-label="Mês anterior">‹</button>
     <span class="month-label" id="monthLabel"></span>
@@ -217,6 +232,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   <div class="day-grid-wrap">
     <div class="day-grid-header"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
     <div class="day-grid" id="dayGrid"></div>
+    <p class="legend">Traço / : dia sem fumar. Traço \ : dia sem o outro hábito. X : os dois.</p>
   </div>
   <div class="content">
     <section class="card" aria-labelledby="h-crav">
@@ -393,6 +409,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   function hasData(k, logDays) {
     var d = S.days[k]; if (logDays[k]) return true; if (!d) return false;
     if (d.checks) { for (var i in d.checks) { if (d.checks[i]) return true; } }
+    if (d.smoke || d.other) return true;
     if (d.patch != null) return true;
     if (d.food) { for (var m in d.food) { if (d.food[m] && d.food[m].trim()) return true; } }
     if (d.sleep && (d.sleep.bed || d.sleep.wake)) return true;
@@ -427,7 +444,11 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       var k = viewY + '-' + pad(viewM + 1) + '-' + pad(d);
       var cls = 'day-cell' + (k === tk ? ' today' : '') + (k === selDate ? ' selected' : '') + (hasData(k, logDays) ? ' has-data' : '');
       var lbl = parseKey(k).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-      html += '<button type="button" class="' + cls + '" data-d="' + k + '" aria-label="' + lbl + '"' + (k > tk ? ' disabled' : '') + '>' + d + '</button>';
+      var rc = S.days[k] || {}, ns = rc.smoke === 'no', no = rc.other === 'no', st = [];
+      if (ns) st.push('sem fumar'); if (rc.smoke === 'yes') st.push('fumei');
+      if (no) st.push('sem o outro hábito'); if (rc.other === 'yes') st.push('pratiquei o outro hábito');
+      var mk = (ns || no) ? '<svg class="mark" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + (ns ? '<line x1="86" y1="14" x2="14" y2="86"/>' : '') + (no ? '<line x1="14" y1="14" x2="86" y2="86"/>' : '') + '</svg>' : '';
+      html += '<button type="button" class="' + cls + '" data-d="' + k + '" aria-label="' + lbl + (st.length ? ', ' + st.join(', ') : '') + '"' + (k > tk ? ' disabled' : '') + '>' + mk + '<span class="num">' + d + '</span></button>';
     }
     $('dayGrid').innerHTML = html;
   }
@@ -458,6 +479,37 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   }
   function dayProgress(k) { var n = 0; ROUTINE.forEach(function (id) { if (checked(k, id)) n++; }); return n; }
 
+  function habitCard(rec) {
+    function row(field, lab, no, yes) {
+      return '<div class="habit"><div class="habit-label">' + lab + '</div><div class="chips">' +
+        '<button type="button" class="chip" data-hab="' + field + '" data-val="no" aria-pressed="' + (rec[field] === 'no') + '">' + no + '</button>' +
+        '<button type="button" class="chip" data-hab="' + field + '" data-val="yes" aria-pressed="' + (rec[field] === 'yes') + '">' + yes + '</button></div></div>';
+    }
+    return '<section class="card"><div class="card-title"><span>Hábitos do dia</span></div>' +
+      row('smoke', 'Cigarro', 'Não fumei', 'Fumei') + row('other', 'Outro hábito', 'Não pratiquei', 'Pratiquei') +
+      '<p class="hint" style="margin:12px 0 0">Cada "não" risca o dia no calendário. "Fumei" zera o contador.</p></section>';
+  }
+  function addDaysKey(k, n) { return dkey(addDays(parseKey(k), n)); }
+  function streakNow() {
+    var tk = todayKey(), t = day(tk).smoke;
+    if (t === 'yes') return { n: 0, pending: false };
+    var pending = t !== 'no', k = pending ? addDaysKey(tk, -1) : tk, n = 0;
+    while (day(k).smoke === 'no') { n++; k = addDaysKey(k, -1); }
+    return { n: n, pending: pending };
+  }
+  function bestStreak() {
+    var ks = Object.keys(S.days).filter(function (k) { return S.days[k].smoke === 'no'; }).sort();
+    var best = 0, run = 0, prev = null;
+    ks.forEach(function (k) { run = (prev && addDaysKey(prev, 1) === k) ? run + 1 : 1; if (run > best) best = run; prev = k; });
+    return best;
+  }
+  function renderStreak() {
+    var s = streakNow(), best = bestStreak(), side = [];
+    if (s.pending) side.push(s.n ? 'Marque hoje para somar' : 'Marque hoje para começar');
+    if (best > 0) side.push('Recorde: ' + best + (best === 1 ? ' dia' : ' dias'));
+    $('streak').innerHTML = '<div class="streak-main"><span class="streak-n">' + s.n + '</span><span class="streak-t">' + (s.n === 1 ? 'dia sem fumar' : 'dias sem fumar') + '</span></div><div class="streak-side">' + side.join('<br>') + '</div>';
+  }
+
   function renderDay() {
     var d = parseKey(selDate), rec = day(selDate), food = rec.food || {}, sl = rec.sleep || {};
     var done = dayProgress(selDate);
@@ -465,7 +517,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     $('dayCount').textContent = n <= 14 ? 'Dia ' + n + ' de 14 de registro' : 'Dia ' + n + ' de registro';
     var html = '<section class="card day-header"><div><div class="day-title">' + DOW[d.getDay()] + '</div><div class="day-sub">' + d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) + '</div></div>' +
       '<div><div class="day-total">' + done + '/' + ROUTINE.length + '</div><div class="day-total-label">da rotina</div></div></section>';
-    html += groupCard(GROUPS[0], selDate) + groupCard(GROUPS[1], selDate) + groupCard(GROUPS[2], selDate);
+    html += habitCard(rec) + groupCard(GROUPS[0], selDate) + groupCard(GROUPS[1], selDate) + groupCard(GROUPS[2], selDate);
     var pc = PATCH.map(function (p) { return '<button type="button" class="chip" data-patch="' + p[0] + '" aria-pressed="' + (rec.patch === p[0]) + '">' + p[1] + '</button>'; }).join('');
     html += '<section class="card"><div class="card-title"><span>Adesivo de nicotina</span></div><div class="chips">' + pc + '</div></section>';
     html += groupCard(GROUPS[3], selDate);
@@ -506,6 +558,15 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   });
   dc.addEventListener('focusout', function (e) { if (e.target.dataset && e.target.dataset.food) renderGrid(); });
   dc.addEventListener('click', function (e) {
+    var hb = e.target.closest('[data-hab]');
+    if (hb) {
+      var hrec = day(selDate, true), hf = hb.dataset.hab, hv = hb.dataset.val;
+      if (hrec[hf] === hv) delete hrec[hf]; else hrec[hf] = hv;
+      save(); renderDay(); renderGrid(); renderStreak();
+      var back = dc.querySelector('[data-hab="' + hf + '"][data-val="' + hv + '"]'); if (back) back.focus({ preventScroll: true });
+      if (hf === 'smoke' && hrec.smoke === 'yes' && selDate === todayKey()) toast('Contador zerado');
+      return;
+    }
     var p = e.target.closest('[data-patch]');
     if (p) {
       var rec = day(selDate, true); rec.patch = (rec.patch === p.dataset.patch) ? null : p.dataset.patch;
@@ -540,10 +601,17 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   $('logform').addEventListener('submit', function (e) {
     e.preventDefault();
     var now = new Date();
-    S.log.push({ t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pick('c-emo'), i: +$('inten').value, a: pick('c-act') });
+    var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pick('c-emo'), i: +$('inten').value, a: pick('c-act') };
+    S.log.push(entry);
+    var note = '';
+    if (entry.a === 'cedi') {
+      var trec = day(todayKey(), true);
+      if (entry.h === 'outro') { trec.other = 'yes'; note = ' Outro hábito marcado hoje.'; }
+      else { trec.smoke = 'yes'; note = ' Cigarro marcado hoje, contador zerado.'; }
+    }
     save(); resetForm(); closeLog();
-    toast('Vontade registrada às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()));
-    selDate = todayKey(); viewY = now.getFullYear(); viewM = now.getMonth(); renderGrid(); renderDay();
+    toast('Vontade registrada às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.' + note);
+    selDate = todayKey(); viewY = now.getFullYear(); viewM = now.getMonth(); renderGrid(); renderDay(); renderStreak();
   });
 
   /* ---------- cronômetro ---------- */
@@ -576,12 +644,14 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var tk = todayKey(), st = S.start || tk, set = {};
     keys.forEach(function (k) { set[k] = true; });
     var r = { n: keys.length, elig: 0, done: 0, item: {}, patch: { '0': 0, '21': 0, '14': 0, '7': 0 }, patchN: 0, med: { r1: 0, r2: 0 }, troca: {}, food: { m: 0, a: 0, t: 0, n: 0 }, foodList: [],
-      sl: { dur: [], bed: [], wake: [], byDay: {} }, cr: { n: 0, sum: 0, cedi: 0, emo: {}, band: {}, act: {}, hab: { cigarro: 0, outro: 0 }, byDay: {} }, acad: 0 };
+      sl: { dur: [], bed: [], wake: [], byDay: {} }, cr: { n: 0, sum: 0, cedi: 0, emo: {}, band: {}, act: {}, hab: { cigarro: 0, outro: 0 }, byDay: {} }, acad: 0, smoke: { no: 0, yes: 0 }, other: { no: 0, yes: 0 } };
     keys.forEach(function (k) {
       var d = S.days[k] || {}, ck = d.checks || {};
       if (k <= tk && k >= st) r.elig++;
       ROUTINE.forEach(function (id) { if (ck[id]) { r.done++; r.item[id] = (r.item[id] || 0) + 1; } });
       if (ck.m4) r.acad++;
+      if (d.smoke === 'no' || d.smoke === 'yes') r.smoke[d.smoke]++;
+      if (d.other === 'no' || d.other === 'yes') r.other[d.other]++;
       for (var t = 1; t <= 8; t++) { if (ck['t' + t]) r.troca['t' + t] = (r.troca['t' + t] || 0) + 1; }
       if (ck.r1) r.med.r1++; if (ck.r2) r.med.r2++;
       if (d.patch != null) { r.patch[d.patch]++; r.patchN++; }
@@ -646,6 +716,12 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       (perDay == null ? '<div class="report-compare">Nenhum dia contado neste período.</div>' : cmp(perDay, pPer, false, 'dec', pn)) +
       kv('Dias com academia', mode === 'week' ? s.acad + ' de 3 na semana' : s.acad + (s.acad === 1 ? ' dia' : ' dias')) +
       kv('Dias contados', s.elig + ' de ' + s.n));
+    html += card('Cigarro e outro hábito',
+      '<div class="report-total">' + s.smoke.no + ' <small>' + (s.smoke.no === 1 ? 'dia sem fumar' : 'dias sem fumar') + '</small></div>' +
+      cmp(s.smoke.no, p.smoke.no, false, 'int', pn) +
+      kv('Dias que fumei', String(s.smoke.yes)) +
+      kv('Dias sem o outro hábito', String(s.other.no)) +
+      kv('Dias com o outro hábito', String(s.other.yes)));
     // vontades
     var c = s.cr;
     html += card('Vontades',
@@ -741,7 +817,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       if (!d || typeof d.days !== 'object') throw new Error('x');
       var b = blank(); for (var k in b) { if (d[k] != null) b[k] = d[k]; }
       S = b; if (!S.start) S.start = todayKey(); save(); $('importText').value = '';
-      renderGrid(); renderDay(); toast('Dados importados');
+      renderGrid(); renderDay(); renderStreak(); toast('Dados importados');
     } catch (e) { toast('Texto inválido'); }
   };
   var clearT = null;
@@ -749,7 +825,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var b = this;
     if (b.dataset.arm === '1') {
       clearTimeout(clearT); b.dataset.arm = ''; b.textContent = 'Apagar tudo';
-      S = blank(); S.start = todayKey(); save(); renderGrid(); renderDay(); toast('Dados apagados'); return;
+      S = blank(); S.start = todayKey(); save(); renderGrid(); renderDay(); renderStreak(); toast('Dados apagados'); return;
     }
     b.dataset.arm = '1'; b.textContent = 'Toque de novo para apagar';
     clearT = setTimeout(function () { b.dataset.arm = ''; b.textContent = 'Apagar tudo'; }, 4000);
@@ -757,10 +833,10 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) return;
-    renderGrid(); renderDay(); if (current === 'semana') renderWeek(); if (current === 'mes') renderMonth();
+    renderGrid(); renderDay(); renderStreak(); if (current === 'semana') renderWeek(); if (current === 'mes') renderMonth();
   });
 
-  renderGrid(); renderDay();
+  renderGrid(); renderDay(); renderStreak();
 })();
 </script>
 </html>
