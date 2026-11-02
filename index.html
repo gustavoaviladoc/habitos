@@ -319,6 +319,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
         <div class="range"><input type="range" id="inten" min="1" max="10" value="5"><output id="intenout" for="inten">5</output></div>
       </fieldset>
       <fieldset><legend>O que você fez?</legend><div class="chips" id="c-act"></div></fieldset>
+      <fieldset id="fs-usei"><legend>Usei <span style="font-weight:400;color:var(--muted)">Marque um ou mais</span></legend><div class="chips" id="c-usei"></div></fieldset>
       <button type="submit" class="btn primary">Salvar registro</button>
     </form>
   </div>
@@ -332,6 +333,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   var EMO = [['tedio', 'Tédio'], ['ansiedade', 'Ansiedade'], ['solidao', 'Solidão'], ['cansaco', 'Cansaço'], ['estresse', 'Estresse'], ['comemoracao', 'Comemoração'], ['empolgacao', 'Empolgação'], ['relaxexc', 'Relaxamento excitante'], ['outra', 'Outra']];
   var ACT = [['lugar', 'Mudei de lugar'], ['respirei', 'Respirei'], ['caminhei', 'Caminhei'], ['pessoa', 'Falei com alguém'], ['maos', 'Fiz algo com as mãos'], ['cedi', 'Cedi']];
   var BANDS = ['Manhã', 'Tarde', 'Noite', 'Madrugada'];
+  var USEI = [['t1', 'Bala'], ['t2', 'Chocolate'], ['t3', 'Chiclete'], ['t4', 'Pirulito'], ['t5', 'Salgado'], ['t6', 'Água'], ['t7', 'Refrigerante'], ['t8', 'Tônica'], ['t9', 'Espelho']];
   var PATCH = [['0', 'Não'], ['21', 'Sim · 21 mg'], ['14', 'Sim · 14 mg'], ['7', 'Sim · 7 mg']];
   var MEALS = [['m', 'Manhã'], ['a', 'Almoço'], ['t', 'Tarde'], ['n', 'Noite']];
   var COLORS = ['#ff9500', '#af52de', '#5856d6', '#ff2d55', '#007aff', '#30b0c7', '#34c759', '#ac8e68'];
@@ -343,10 +345,6 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       ['m2', 'Caminhar 15 minutos antes de olhar telas'],
       ['m3', 'Decidir o que fazer no horário de maior vontade'],
       ['m4', 'Ir na academia']
-    ] },
-    { id: 'troca', title: 'Troca para o cigarro', noProg: true, hint: 'Marque o que usou no lugar do cigarro.', items: [
-      ['t1', 'Bala'], ['t2', 'Chocolate'], ['t3', 'Chiclete'], ['t4', 'Pirulito'],
-      ['t5', 'Salgado'], ['t6', 'Água'], ['t7', 'Refrigerante'], ['t8', 'Tônica'], ['t9', 'Espelho']
     ] },
     { id: 'noite', title: 'Noite', items: [
       ['n1', 'Celular carregando fora do quarto'],
@@ -390,6 +388,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   function label(list, v) { for (var i = 0; i < list.length; i++) { if (list[i][0] === v) return list[i][1]; } return ''; }
   function emos(x) { return Array.isArray(x.e) ? x.e : (x.e ? [x.e] : []); }
   function emoText(x) { return emos(x).map(function (id) { return label(EMO, id); }).filter(Boolean).join(', '); }
+  function useText(x) { var n = Array.isArray(x.u) ? x.u.map(function (id) { return label(USEI, id); }).filter(Boolean) : []; return n.length ? 'Usei: ' + n.join(', ') : ''; }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function fmtDM(d) { return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', ''); }
   function fmtNum(n, dec) { return n.toFixed(dec == null ? 1 : dec).replace('.', ','); }
@@ -519,10 +518,10 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     $('dayCount').textContent = n <= 14 ? 'Dia ' + n + ' de 14 de registro' : 'Dia ' + n + ' de registro';
     var html = '<section class="card day-header"><div><div class="day-title">' + DOW[d.getDay()] + '</div><div class="day-sub">' + d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) + '</div></div>' +
       '<div><div class="day-total">' + done + '/' + ROUTINE.length + '</div><div class="day-total-label">da rotina</div></div></section>';
-    html += habitCard(rec) + groupCard(GROUPS[0], selDate) + groupCard(GROUPS[1], selDate) + groupCard(GROUPS[2], selDate);
+    html += habitCard(rec) + groupCard(GROUPS[0], selDate) + groupCard(GROUPS[1], selDate);
     var pc = PATCH.map(function (p) { return '<button type="button" class="chip" data-patch="' + p[0] + '" aria-pressed="' + (rec.patch === p[0]) + '">' + p[1] + '</button>'; }).join('');
     html += '<section class="card"><div class="card-title"><span>Adesivo de nicotina</span></div><div class="chips">' + pc + '</div></section>';
-    html += groupCard(GROUPS[3], selDate);
+    html += groupCard(GROUPS[2], selDate);
     html += '<section class="card"><div class="card-title"><span>Alimentação</span></div>' + MEALS.map(function (m) {
       return '<label class="field-label" for="f-' + m[0] + '">' + m[1] + '</label><textarea class="t" id="f-' + m[0] + '" data-food="' + m[0] + '" rows="2" placeholder="O que você comeu">' + esc(food[m[0]] || '') + '</textarea>';
     }).join('') + '</section>';
@@ -535,7 +534,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     if (!L.length) html += '<p class="empty">Nenhuma vontade registrada neste dia.</p>';
     L.forEach(function (x) {
       var dt = new Date(x.t), hm = pad(dt.getHours()) + ':' + pad(dt.getMinutes());
-      var parts = [label(HAB, x.h), emoText(x), 'nota ' + x.i, label(ACT, x.a)].filter(Boolean);
+      var parts = [label(HAB, x.h), emoText(x), 'nota ' + x.i, label(ACT, x.a), useText(x)].filter(Boolean);
       html += '<div class="entry"><span class="t">' + hm + '</span><span class="d">' + parts.join(' · ') + '</span><button type="button" class="link-btn" data-rm="' + x.t + '" aria-label="Remover registro das ' + hm + '">Remover</button></div>';
     });
     html += '</section>';
@@ -583,18 +582,25 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   function chips(id, list) { $(id).innerHTML = list.map(function (p) { return '<button type="button" class="chip" data-v="' + p[0] + '" aria-pressed="false">' + p[1] + '</button>'; }).join(''); }
   function pick(id) { var b = document.querySelector('#' + id + ' .chip[aria-pressed="true"]'); return b ? b.dataset.v : null; }
   function pickAll(id) { return Array.prototype.map.call(document.querySelectorAll('#' + id + ' .chip[aria-pressed="true"]'), function (b) { return b.dataset.v; }); }
+  function syncUsei() {
+    var smoking = pick('c-hab') !== 'outro';
+    $('fs-usei').hidden = !smoking;
+    if (!smoking) document.querySelectorAll('#c-usei .chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+  }
   function resetForm() {
-    ['c-hab', 'c-emo', 'c-act'].forEach(function (id) { document.querySelectorAll('#' + id + ' .chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); });
+    ['c-hab', 'c-emo', 'c-act', 'c-usei'].forEach(function (id) { document.querySelectorAll('#' + id + ' .chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); });
     document.querySelector('#c-hab .chip').setAttribute('aria-pressed', 'true');
     $('inten').value = 5; $('intenout').textContent = '5';
+    syncUsei();
   }
-  chips('c-hab', HAB); chips('c-emo', EMO); chips('c-act', ACT); resetForm();
+  chips('c-hab', HAB); chips('c-emo', EMO); chips('c-act', ACT); chips('c-usei', USEI); resetForm();
   $('logform').addEventListener('click', function (e) {
     var c = e.target.closest('.chip'); if (!c) return;
     var grp = c.parentNode, was = c.getAttribute('aria-pressed') === 'true';
-    if (grp.id === 'c-emo') { c.setAttribute('aria-pressed', String(!was)); return; }
+    if (grp.id === 'c-emo' || grp.id === 'c-usei') { c.setAttribute('aria-pressed', String(!was)); return; }
     grp.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
     if (!was || grp.id === 'c-hab') c.setAttribute('aria-pressed', 'true');
+    if (grp.id === 'c-hab') syncUsei();
   });
   $('inten').addEventListener('input', function () { $('intenout').textContent = this.value; });
   function openLog() { $('logModal').classList.add('open'); }
@@ -605,7 +611,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   $('logform').addEventListener('submit', function (e) {
     e.preventDefault();
     var now = new Date();
-    var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pickAll('c-emo'), i: +$('inten').value, a: pick('c-act') };
+    var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pickAll('c-emo'), i: +$('inten').value, a: pick('c-act'), u: pickAll('c-usei') };
     S.log.push(entry);
     var note = '';
     if (entry.a === 'cedi') {
@@ -656,7 +662,6 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       if (ck.m4) r.acad++;
       if (d.smoke === 'no' || d.smoke === 'yes') r.smoke[d.smoke]++;
       if (d.other === 'no' || d.other === 'yes') r.other[d.other]++;
-      for (var t = 1; t <= 9; t++) { if (ck['t' + t]) r.troca['t' + t] = (r.troca['t' + t] || 0) + 1; }
       if (ck.r1) r.med.r1++; if (ck.r2) r.med.r2++;
       if (d.patch != null) { r.patch[d.patch]++; r.patchN++; }
       MEALS.forEach(function (m) {
@@ -673,6 +678,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       var c = r.cr; c.n++; c.sum += x.i; if (x.a === 'cedi') c.cedi++;
       c.hab[x.h === 'outro' ? 'outro' : 'cigarro']++;
       var es = emos(x); es.forEach(function (id) { c.emo[id] = (c.emo[id] || 0) + 1; }); if (es.length) c.nEmo++;
+      if (Array.isArray(x.u)) x.u.forEach(function (id) { r.troca[id] = (r.troca[id] || 0) + 1; });
       if (x.a) c.act[x.a] = (c.act[x.a] || 0) + 1;
       var h = new Date(x.t).getHours(), bi = h >= 5 && h < 12 ? 0 : h >= 12 && h < 18 ? 1 : h >= 18 && h < 23 ? 2 : 3;
       c.band[bi] = (c.band[bi] || 0) + 1; c.byDay[k] = (c.byDay[k] || 0) + 1;
@@ -746,9 +752,9 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var ir = ROUTINE.map(function (id) { var n = s.item[id] || 0; return [NAMES[id], n, n + (s.elig ? '/' + s.elig : '')]; });
     html += card('Itens da rotina', s.elig ? bars(ir) : '<p class="empty">Sem dias contados.</p>');
     // trocas
-    var tr = []; for (var t = 1; t <= 9; t++) { var id = 't' + t; tr.push([NAMES[id], s.troca[id] || 0, (s.troca[id] || 0) + (s.troca[id] === 1 ? ' dia' : ' dias')]); }
+    var tr = USEI.map(function (u) { var n = s.troca[u[0]] || 0; return [u[1], n, n + (n === 1 ? ' vez' : ' vezes')]; });
     tr.sort(function (a, b) { return b[1] - a[1]; });
-    html += card('Trocas para o cigarro', bars(tr));
+    html += card('Usei', bars(tr));
     // adesivo
     html += card('Adesivo de nicotina', s.patchN ? bars(PATCH.map(function (pp) { return [pp[0] === '0' ? 'Sem adesivo' : pp[0] + ' mg', s.patch[pp[0]], s.patch[pp[0]] + (s.patch[pp[0]] === 1 ? ' dia' : ' dias')]; })) + kv('Dias registrados', String(s.patchN)) : '<p class="empty">Nenhum dia registrado.</p>');
     // remédio
