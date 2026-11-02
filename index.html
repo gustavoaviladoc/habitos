@@ -313,7 +313,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     </div>
     <form class="modal-body" id="logform">
       <fieldset><legend>Qual hábito?</legend><div class="chips" id="c-hab"></div></fieldset>
-      <fieldset><legend>O que você sentia antes?</legend><div class="chips" id="c-emo"></div></fieldset>
+      <fieldset><legend>O que você sentia antes? <span style="font-weight:400;color:var(--muted)">Marque um ou mais</span></legend><div class="chips" id="c-emo"></div></fieldset>
       <fieldset>
         <legend><label for="inten">Intensidade</label></legend>
         <div class="range"><input type="range" id="inten" min="1" max="10" value="5"><output id="intenout" for="inten">5</output></div>
@@ -329,7 +329,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
 (function () {
   var KEY = 'habitos-v2', OLD = 'surfar-a-vontade-v1';
   var HAB = [['cigarro', 'Cigarro'], ['outro', 'Outro hábito']];
-  var EMO = [['tedio', 'Tédio'], ['ansiedade', 'Ansiedade'], ['solidao', 'Solidão'], ['cansaco', 'Cansaço'], ['estresse', 'Estresse'], ['comemoracao', 'Comemoração'], ['empolgacao', 'Empolgação'], ['outra', 'Outra']];
+  var EMO = [['tedio', 'Tédio'], ['ansiedade', 'Ansiedade'], ['solidao', 'Solidão'], ['cansaco', 'Cansaço'], ['estresse', 'Estresse'], ['comemoracao', 'Comemoração'], ['empolgacao', 'Empolgação'], ['relaxexc', 'Relaxamento excitante'], ['outra', 'Outra']];
   var ACT = [['lugar', 'Mudei de lugar'], ['respirei', 'Respirei'], ['caminhei', 'Caminhei'], ['pessoa', 'Falei com alguém'], ['maos', 'Fiz algo com as mãos'], ['cedi', 'Cedi']];
   var BANDS = ['Manhã', 'Tarde', 'Noite', 'Madrugada'];
   var PATCH = [['0', 'Não'], ['21', 'Sim · 21 mg'], ['14', 'Sim · 14 mg'], ['7', 'Sim · 7 mg']];
@@ -346,7 +346,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     ] },
     { id: 'troca', title: 'Troca para o cigarro', noProg: true, hint: 'Marque o que usou no lugar do cigarro.', items: [
       ['t1', 'Bala'], ['t2', 'Chocolate'], ['t3', 'Chiclete'], ['t4', 'Pirulito'],
-      ['t5', 'Salgado'], ['t6', 'Água'], ['t7', 'Refrigerante'], ['t8', 'Tônica']
+      ['t5', 'Salgado'], ['t6', 'Água'], ['t7', 'Refrigerante'], ['t8', 'Tônica'], ['t9', 'Espelho']
     ] },
     { id: 'noite', title: 'Noite', items: [
       ['n1', 'Celular carregando fora do quarto'],
@@ -388,6 +388,8 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function label(list, v) { for (var i = 0; i < list.length; i++) { if (list[i][0] === v) return list[i][1]; } return ''; }
+  function emos(x) { return Array.isArray(x.e) ? x.e : (x.e ? [x.e] : []); }
+  function emoText(x) { return emos(x).map(function (id) { return label(EMO, id); }).filter(Boolean).join(', '); }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function fmtDM(d) { return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', ''); }
   function fmtNum(n, dec) { return n.toFixed(dec == null ? 1 : dec).replace('.', ','); }
@@ -533,7 +535,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     if (!L.length) html += '<p class="empty">Nenhuma vontade registrada neste dia.</p>';
     L.forEach(function (x) {
       var dt = new Date(x.t), hm = pad(dt.getHours()) + ':' + pad(dt.getMinutes());
-      var parts = [label(HAB, x.h), label(EMO, x.e), 'nota ' + x.i, label(ACT, x.a)].filter(Boolean);
+      var parts = [label(HAB, x.h), emoText(x), 'nota ' + x.i, label(ACT, x.a)].filter(Boolean);
       html += '<div class="entry"><span class="t">' + hm + '</span><span class="d">' + parts.join(' · ') + '</span><button type="button" class="link-btn" data-rm="' + x.t + '" aria-label="Remover registro das ' + hm + '">Remover</button></div>';
     });
     html += '</section>';
@@ -580,6 +582,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   /* ---------- registro de vontade ---------- */
   function chips(id, list) { $(id).innerHTML = list.map(function (p) { return '<button type="button" class="chip" data-v="' + p[0] + '" aria-pressed="false">' + p[1] + '</button>'; }).join(''); }
   function pick(id) { var b = document.querySelector('#' + id + ' .chip[aria-pressed="true"]'); return b ? b.dataset.v : null; }
+  function pickAll(id) { return Array.prototype.map.call(document.querySelectorAll('#' + id + ' .chip[aria-pressed="true"]'), function (b) { return b.dataset.v; }); }
   function resetForm() {
     ['c-hab', 'c-emo', 'c-act'].forEach(function (id) { document.querySelectorAll('#' + id + ' .chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); }); });
     document.querySelector('#c-hab .chip').setAttribute('aria-pressed', 'true');
@@ -589,6 +592,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   $('logform').addEventListener('click', function (e) {
     var c = e.target.closest('.chip'); if (!c) return;
     var grp = c.parentNode, was = c.getAttribute('aria-pressed') === 'true';
+    if (grp.id === 'c-emo') { c.setAttribute('aria-pressed', String(!was)); return; }
     grp.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
     if (!was || grp.id === 'c-hab') c.setAttribute('aria-pressed', 'true');
   });
@@ -601,7 +605,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   $('logform').addEventListener('submit', function (e) {
     e.preventDefault();
     var now = new Date();
-    var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pick('c-emo'), i: +$('inten').value, a: pick('c-act') };
+    var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pickAll('c-emo'), i: +$('inten').value, a: pick('c-act') };
     S.log.push(entry);
     var note = '';
     if (entry.a === 'cedi') {
@@ -644,7 +648,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var tk = todayKey(), st = S.start || tk, set = {};
     keys.forEach(function (k) { set[k] = true; });
     var r = { n: keys.length, elig: 0, done: 0, item: {}, patch: { '0': 0, '21': 0, '14': 0, '7': 0 }, patchN: 0, med: { r1: 0, r2: 0 }, troca: {}, food: { m: 0, a: 0, t: 0, n: 0 }, foodList: [],
-      sl: { dur: [], bed: [], wake: [], byDay: {} }, cr: { n: 0, sum: 0, cedi: 0, emo: {}, band: {}, act: {}, hab: { cigarro: 0, outro: 0 }, byDay: {} }, acad: 0, smoke: { no: 0, yes: 0 }, other: { no: 0, yes: 0 } };
+      sl: { dur: [], bed: [], wake: [], byDay: {} }, cr: { n: 0, sum: 0, cedi: 0, nEmo: 0, emo: {}, band: {}, act: {}, hab: { cigarro: 0, outro: 0 }, byDay: {} }, acad: 0, smoke: { no: 0, yes: 0 }, other: { no: 0, yes: 0 } };
     keys.forEach(function (k) {
       var d = S.days[k] || {}, ck = d.checks || {};
       if (k <= tk && k >= st) r.elig++;
@@ -652,7 +656,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       if (ck.m4) r.acad++;
       if (d.smoke === 'no' || d.smoke === 'yes') r.smoke[d.smoke]++;
       if (d.other === 'no' || d.other === 'yes') r.other[d.other]++;
-      for (var t = 1; t <= 8; t++) { if (ck['t' + t]) r.troca['t' + t] = (r.troca['t' + t] || 0) + 1; }
+      for (var t = 1; t <= 9; t++) { if (ck['t' + t]) r.troca['t' + t] = (r.troca['t' + t] || 0) + 1; }
       if (ck.r1) r.med.r1++; if (ck.r2) r.med.r2++;
       if (d.patch != null) { r.patch[d.patch]++; r.patchN++; }
       MEALS.forEach(function (m) {
@@ -668,7 +672,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       var k = dkey(new Date(x.t)); if (!set[k]) return;
       var c = r.cr; c.n++; c.sum += x.i; if (x.a === 'cedi') c.cedi++;
       c.hab[x.h === 'outro' ? 'outro' : 'cigarro']++;
-      if (x.e) c.emo[x.e] = (c.emo[x.e] || 0) + 1;
+      var es = emos(x); es.forEach(function (id) { c.emo[id] = (c.emo[id] || 0) + 1; }); if (es.length) c.nEmo++;
       if (x.a) c.act[x.a] = (c.act[x.a] || 0) + 1;
       var h = new Date(x.t).getHours(), bi = h >= 5 && h < 12 ? 0 : h >= 12 && h < 18 ? 1 : h >= 18 && h < 23 ? 2 : 3;
       c.band[bi] = (c.band[bi] || 0) + 1; c.byDay[k] = (c.byDay[k] || 0) + 1;
@@ -731,8 +735,8 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       dayBars(keys, function (k) { return c.byDay[k] || 0; }, function (v) { return v; }, mode === 'month'));
     // emoções
     var er = EMO.map(function (e) { return [e[1], c.emo[e[0]] || 0]; }).filter(function (r) { return r[1]; }).sort(function (a, b) { return b[1] - a[1]; });
-    var ne = er.reduce(function (n, r) { return n + r[1]; }, 0);
-    html += card('O que sentia antes', bars(er.map(function (r) { return [r[0], r[1], r[1] + ' · ' + Math.round(r[1] / ne * 100) + '%']; })));
+    var ne = c.nEmo;
+    html += card('O que sentia antes', '<p class="hint">Cada vontade pode ter mais de um sentimento.</p>' + bars(er.map(function (r) { return [r[0], r[1], r[1] + ' · ' + Math.round(r[1] / ne * 100) + '%']; })));
     // período do dia
     html += card('Período do dia', bars(BANDS.map(function (b, i) { return [b, c.band[i] || 0, String(c.band[i] || 0)]; })));
     // o que fiz
@@ -742,7 +746,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var ir = ROUTINE.map(function (id) { var n = s.item[id] || 0; return [NAMES[id], n, n + (s.elig ? '/' + s.elig : '')]; });
     html += card('Itens da rotina', s.elig ? bars(ir) : '<p class="empty">Sem dias contados.</p>');
     // trocas
-    var tr = []; for (var t = 1; t <= 8; t++) { var id = 't' + t; tr.push([NAMES[id], s.troca[id] || 0, (s.troca[id] || 0) + (s.troca[id] === 1 ? ' dia' : ' dias')]); }
+    var tr = []; for (var t = 1; t <= 9; t++) { var id = 't' + t; tr.push([NAMES[id], s.troca[id] || 0, (s.troca[id] || 0) + (s.troca[id] === 1 ? ' dia' : ' dias')]); }
     tr.sort(function (a, b) { return b[1] - a[1]; });
     html += card('Trocas para o cigarro', bars(tr));
     // adesivo
