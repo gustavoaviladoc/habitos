@@ -1,11 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Surfar a Vontade">
 <style>:root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}</style>
 <title>Surfar a Vontade</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -283,6 +282,10 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   <div class="content">
     <div class="card" id="onceCard"></div>
     <div class="card">
+      <h3>Histórico em todos os aparelhos</h3>
+      <p class="sub" id="syncStatus" style="margin-bottom:0"></p>
+    </div>
+    <div class="card">
       <h3>Exportar dados</h3>
       <p class="sub">Copia todos os dados em formato texto.</p>
       <button class="settings-btn primary" id="exportBtn">Gerar exportação</button>
@@ -291,7 +294,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     </div>
     <div class="card">
       <h3>Importar dados</h3>
-      <p class="sub">Cole uma exportação anterior para restaurar.</p>
+      <p class="sub">Cole uma exportação para juntar ao que já existe.</p>
       <textarea class="textarea-export" id="importText" style="height:100px" placeholder="Cole aqui o texto exportado..."></textarea>
       <button class="settings-btn" id="importBtn">Importar</button>
     </div>
@@ -331,7 +334,8 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   var KEY = 'habitos-v2', OLD = 'surfar-a-vontade-v1';
   var HAB = [['cigarro', 'Cigarro'], ['outro', 'Outro hábito']];
   var EMO = [['tedio', 'Tédio'], ['ansiedade', 'Ansiedade'], ['solidao', 'Solidão'], ['cansaco', 'Cansaço'], ['estresse', 'Estresse'], ['comemoracao', 'Comemoração'], ['empolgacao', 'Empolgação'], ['relaxexc', 'Relaxamento excitante'], ['outra', 'Outra']];
-  var ACT = [['lugar', 'Mudei de lugar'], ['respirei', 'Respirei'], ['caminhei', 'Caminhei'], ['pessoa', 'Falei com alguém'], ['maos', 'Fiz algo com as mãos'], ['cedi', 'Cedi']];
+  var ACT = [['respirei', 'Respirei'], ['caminhei', 'Caminhei'], ['pessoa', 'Falei com alguém'], ['alongamento', 'Alongamento']];
+  var ACT_OLD = [['lugar', 'Mudei de lugar'], ['maos', 'Fiz algo com as mãos'], ['cedi', 'Cedi']];
   var BANDS = ['Manhã', 'Tarde', 'Noite', 'Madrugada'];
   var USEI = [['t1', 'Bala'], ['t2', 'Chocolate'], ['t3', 'Chiclete'], ['t4', 'Pirulito'], ['t5', 'Salgado'], ['t6', 'Água'], ['t7', 'Refrigerante'], ['t8', 'Tônica'], ['t9', 'Espelho']];
   var PATCH = [['0', 'Não'], ['21', 'Sim · 21 mg'], ['14', 'Sim · 14 mg'], ['7', 'Sim · 7 mg']];
@@ -376,7 +380,186 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     return blank();
   }
   var S = load();
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function saveLocal() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() { saveLocal(); }
+
+  /* ---------- sincronização entre aparelhos (db do artefato) ---------- */
+  var SYNCKEY = 'habitos-sync', DIRTYKEY = 'habitos-dirty', FLUSH_MS = 700;
+  var SYNC = { enabled: !!(window.claude && typeof window.claude.use === 'function'), state: 'local', code: null, col: null, ready: false, first: false, dirty: {}, inflight: {}, again: {}, last: {}, timer: null, at: null };
+  var pendingRefresh = false;
+  try { SYNC.dirty = JSON.parse(localStorage.getItem(DIRTYKEY) || '{}') || {}; } catch (e) { SYNC.dirty = {}; }
+  function saveDirty() { try { localStorage.setItem(DIRTYKEY, JSON.stringify(SYNC.dirty)); } catch (e) {} }
+  function clean(v) { return JSON.parse(JSON.stringify(v)); }
+  function stable(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v);
+    if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+    return '{' + Object.keys(v).sort().map(function (k) { return JSON.stringify(k) + ':' + stable(v[k]); }).join(',') + '}';
+  }
+  function dateOfLog(x) { return dkey(new Date(x.t)); }
+  function localIds() {
+    var seen = { meta: 1 };
+    Object.keys(S.days).forEach(function (k) { seen['d_' + k] = 1; });
+    S.log.forEach(function (x) { seen['d_' + dateOfLog(x)] = 1; });
+    return Object.keys(seen);
+  }
+  function localDoc(id) {
+    if (id === 'meta') return clean({ start: S.start || null, once: S.once || {}, week: S.week || {} });
+    var k = id.slice(2), d = clean(S.days[k] || {});
+    var u = S.log.filter(function (x) { return dateOfLog(x) === k; }).sort(function (a, b) { return a.t - b.t; });
+    if (u.length) d.urges = clean(u);
+    return Object.keys(d).length ? d : null;
+  }
+  function applyDoc(id, data) {
+    if (id === 'meta') {
+      if (!data) return;
+      if (data.start) S.start = data.start;
+      S.once = data.once || {}; S.week = data.week || {};
+      return;
+    }
+    var k = id.slice(2);
+    S.log = S.log.filter(function (x) { return dateOfLog(x) !== k; });
+    if (!data) { delete S.days[k]; return; }
+    var d = clean(data), u = Array.isArray(d.urges) ? d.urges : [];
+    delete d.urges;
+    S.days[k] = d;
+    S.log = S.log.concat(u);
+  }
+  /* junção: b vence nos conflitos, a preenche o que falta */
+  function mergeDay(a, b) {
+    var o = clean(a || {}); b = b || {};
+    Object.keys(b).forEach(function (k) {
+      if (k === 'checks') {
+        var c = o.checks || {};
+        Object.keys(b.checks || {}).forEach(function (id) { c[id] = !!(c[id] || b.checks[id]); });
+        o.checks = c;
+      } else if (k === 'food' || k === 'sleep') {
+        var f = o[k] || {};
+        Object.keys(b[k] || {}).forEach(function (m) { if (b[k][m]) f[m] = b[k][m]; });
+        o[k] = f;
+      } else if (k === 'urges') {
+        var us = o.urges || [];
+        (b.urges || []).forEach(function (x) { if (!us.some(function (y) { return y.t === x.t; })) us.push(clean(x)); });
+        us.sort(function (p, q) { return p.t - q.t; });
+        o.urges = us;
+      } else { o[k] = clean(b[k]); }
+    });
+    return o;
+  }
+  function mergeMeta(a, b) {
+    var o = clean(a || {}), r = b || {};
+    o.start = (o.start && r.start) ? (o.start < r.start ? o.start : r.start) : (o.start || r.start || null);
+    var once = o.once || {};
+    Object.keys(r.once || {}).forEach(function (k) { once[k] = !!(once[k] || r.once[k]); });
+    o.once = once;
+    var week = o.week || {};
+    Object.keys(r.week || {}).forEach(function (wk) {
+      var w = week[wk] || {};
+      Object.keys(r.week[wk] || {}).forEach(function (k) { w[k] = !!(w[k] || r.week[wk][k]); });
+      week[wk] = w;
+    });
+    o.week = week;
+    return o;
+  }
+  function mergeDoc(id, l, r) { return id === 'meta' ? mergeMeta(l, r) : mergeDay(l, r); }
+
+  function syncText() {
+    if (SYNC.state === 'ready') return 'Sincronizado com a sua conta do Claude' + (SYNC.at ? '. Última atualização às ' + pad(SYNC.at.getHours()) + ':' + pad(SYNC.at.getMinutes()) : '') + '. O mesmo histórico aparece em todos os aparelhos que abrirem este link na sua conta.';
+    if (SYNC.state === 'connecting') return 'Conectando à sua conta do Claude.';
+    if (SYNC.state === 'error') return 'Não foi possível sincronizar agora. Os dados continuam salvos neste aparelho e sobem quando a conexão voltar.';
+    return 'Este endereço guarda os dados só neste aparelho. Para ter o mesmo histórico no celular e no computador, abra o app pelo link do Claude, na mesma conta.';
+  }
+  function setSync(state, code) { SYNC.state = state; SYNC.code = code || null; var el = $('syncStatus'); if (el) el.textContent = syncText(); }
+  function readFlag() { try { return localStorage.getItem(SYNCKEY) === '1'; } catch (e) { return false; } }
+  function setFlag() { try { localStorage.setItem(SYNCKEY, '1'); } catch (e) {} }
+
+  function scheduleFlush(ms) { clearTimeout(SYNC.timer); SYNC.timer = setTimeout(function () { SYNC.timer = null; flush(); }, ms || FLUSH_MS); }
+  function touch(id) { if (!SYNC.enabled) return; SYNC.dirty[id] = 1; saveDirty(); scheduleFlush(); }
+  function touchDay(k) { touch('d_' + k); }
+  function flush() {
+    if (!SYNC.ready) return;
+    Object.keys(SYNC.dirty).forEach(function (id) {
+      if (SYNC.inflight[id] || Object.keys(SYNC.inflight).length >= 4) return;
+      pushId(id);
+    });
+  }
+  function pushId(id) {
+    if (!SYNC.col) return;
+    if (SYNC.inflight[id]) { SYNC.again[id] = 1; return; }
+    var data = localDoc(id), json = data ? stable(data) : null;
+    if (SYNC.last[id] === json) { delete SYNC.dirty[id]; saveDirty(); return; }
+    SYNC.inflight[id] = 1;
+    var ref = SYNC.col.doc(id), p = data ? ref.set(data) : ref.delete();
+    p.then(function () {
+      delete SYNC.inflight[id]; SYNC.last[id] = json; SYNC.at = new Date();
+      if (SYNC.again[id]) { delete SYNC.again[id]; pushId(id); return; }
+      var now = localDoc(id);
+      if ((now ? stable(now) : null) !== json) { pushId(id); return; }
+      delete SYNC.dirty[id]; saveDirty(); setSync('ready'); flush();
+    }, function (e) {
+      delete SYNC.inflight[id]; delete SYNC.again[id];
+      setSync('error', e && e.code);
+      var fatal = e && (e.code === 'invalid_argument' || e.code === 'quota_exceeded' || e.code === 'revoked');
+      if (!fatal) scheduleFlush(10000);
+    });
+  }
+  function initialMerge(snap) {
+    var remote = {}, firstRun = !readFlag();
+    snap.docs.forEach(function (d) { if (d.exists) remote[d.id] = clean(d.data()); });
+    var ids = {};
+    Object.keys(remote).forEach(function (i) { ids[i] = 1; });
+    localIds().forEach(function (i) { ids[i] = 1; });
+    Object.keys(ids).forEach(function (id) {
+      if (id !== 'meta' && id.indexOf('d_') !== 0) return;
+      var r = remote[id] || null, l = localDoc(id), mine = firstRun || SYNC.dirty[id];
+      if (r) {
+        SYNC.last[id] = stable(r);
+        if (mine && l) { var m = mergeDoc(id, l, r); applyDoc(id, m); if (stable(m) !== SYNC.last[id]) SYNC.dirty[id] = 1; }
+        else applyDoc(id, r);
+      } else if (l) {
+        if (mine) SYNC.dirty[id] = 1; else applyDoc(id, null);
+      }
+    });
+    setFlag(); SYNC.first = true; SYNC.ready = true; SYNC.at = new Date();
+    saveDirty(); saveLocal(); setSync('ready');
+    refreshAll(); flush();
+    if (firstRun) toast('Histórico sincronizado');
+  }
+  function onSnap(snap) {
+    if (!SYNC.first) { if (snap.metadata && snap.metadata.fromCache) return; initialMerge(snap); return; }
+    var changed = false;
+    snap.docChanges().forEach(function (ch) {
+      var id = ch.doc.id;
+      if (id !== 'meta' && id.indexOf('d_') !== 0) return;
+      if (ch.doc.metadata && ch.doc.metadata.hasPendingWrites) return;
+      var data = ch.type === 'removed' ? null : clean(ch.doc.data()), json = data ? stable(data) : null;
+      if (SYNC.last[id] === json) return;
+      if (SYNC.inflight[id] || SYNC.dirty[id]) return;
+      applyDoc(id, data); SYNC.last[id] = json; changed = true;
+    });
+    SYNC.at = new Date(); setSync('ready');
+    if (changed) { saveLocal(); refreshAll(); }
+  }
+  function refreshAll() {
+    var a = document.activeElement;
+    if (a && dc && dc.contains && dc.contains(a) && /^(TEXTAREA|INPUT)$/.test(a.tagName)) { pendingRefresh = true; return; }
+    pendingRefresh = false;
+    renderGrid(); renderDay(); renderStreak();
+    if (current === 'semana') renderWeek();
+    if (current === 'mes') renderMonth();
+    if (current === 'ajustes') renderOnce();
+  }
+  function connectSync() {
+    if (!SYNC.enabled) { setSync('local'); return; }
+    setSync('connecting');
+    var p;
+    try { p = window.claude.use('db'); } catch (e) { setSync('local'); return; }
+    p.then(function (db) {
+      if (!db) { setSync('local'); return; }
+      SYNC.col = db.collection('habitos');
+      SYNC.col.onSnapshot(onSnap, function (e) { SYNC.ready = false; setSync('error', e && e.code); });
+    }, function () { setSync('local'); });
+    if (window.addEventListener) window.addEventListener('online', flush);
+  }
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function dkey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -534,7 +717,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     if (!L.length) html += '<p class="empty">Nenhuma vontade registrada neste dia.</p>';
     L.forEach(function (x) {
       var dt = new Date(x.t), hm = pad(dt.getHours()) + ':' + pad(dt.getMinutes());
-      var parts = [label(HAB, x.h), emoText(x), 'nota ' + x.i, label(ACT, x.a), useText(x)].filter(Boolean);
+      var parts = [label(HAB, x.h), emoText(x), 'nota ' + x.i, label(ACT.concat(ACT_OLD), x.a), useText(x)].filter(Boolean);
       html += '<div class="entry"><span class="t">' + hm + '</span><span class="d">' + parts.join(' · ') + '</span><button type="button" class="link-btn" data-rm="' + x.t + '" aria-label="Remover registro das ' + hm + '">Remover</button></div>';
     });
     html += '</section>';
@@ -545,25 +728,25 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   dc.addEventListener('change', function (e) {
     var i = e.target;
     if (i.dataset.k) {
-      var rec = day(selDate, true); rec.checks = rec.checks || {}; rec.checks[i.dataset.k] = i.checked; save();
+      var rec = day(selDate, true); rec.checks = rec.checks || {}; rec.checks[i.dataset.k] = i.checked; touchDay(selDate); save();
       renderDay(); renderGrid();
       var again = dc.querySelector('input[data-k="' + i.dataset.k + '"]'); if (again) again.focus({ preventScroll: true });
     } else if (i.dataset.sleep) {
-      var r2 = day(selDate, true); r2.sleep = r2.sleep || {}; r2.sleep[i.dataset.sleep] = i.value; save();
+      var r2 = day(selDate, true); r2.sleep = r2.sleep || {}; r2.sleep[i.dataset.sleep] = i.value; touchDay(selDate); save();
       $('sleepOut').textContent = sleepOut(r2.sleep); renderGrid();
     }
   });
   dc.addEventListener('input', function (e) {
     var t = e.target;
-    if (t.dataset.food) { var rec = day(selDate, true); rec.food = rec.food || {}; rec.food[t.dataset.food] = t.value; save(); }
+    if (t.dataset.food) { var rec = day(selDate, true); rec.food = rec.food || {}; rec.food[t.dataset.food] = t.value; touchDay(selDate); save(); }
   });
-  dc.addEventListener('focusout', function (e) { if (e.target.dataset && e.target.dataset.food) renderGrid(); });
+  dc.addEventListener('focusout', function (e) { if (e.target.dataset && e.target.dataset.food) renderGrid(); if (pendingRefresh) setTimeout(refreshAll, 0); });
   dc.addEventListener('click', function (e) {
     var hb = e.target.closest('[data-hab]');
     if (hb) {
       var hrec = day(selDate, true), hf = hb.dataset.hab, hv = hb.dataset.val;
       if (hrec[hf] === hv) delete hrec[hf]; else hrec[hf] = hv;
-      save(); renderDay(); renderGrid(); renderStreak();
+      touchDay(selDate); save(); renderDay(); renderGrid(); renderStreak();
       var back = dc.querySelector('[data-hab="' + hf + '"][data-val="' + hv + '"]'); if (back) back.focus({ preventScroll: true });
       if (hf === 'smoke' && hrec.smoke === 'yes' && selDate === todayKey()) toast('Contador zerado');
       return;
@@ -572,10 +755,10 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     if (p) {
       var rec = day(selDate, true); rec.patch = (rec.patch === p.dataset.patch) ? null : p.dataset.patch;
       if (rec.patch == null) delete rec.patch;
-      save(); dc.querySelectorAll('[data-patch]').forEach(function (b) { b.setAttribute('aria-pressed', String(rec.patch === b.dataset.patch)); }); renderGrid(); return;
+      touchDay(selDate); save(); dc.querySelectorAll('[data-patch]').forEach(function (b) { b.setAttribute('aria-pressed', String(rec.patch === b.dataset.patch)); }); renderGrid(); return;
     }
     var rm = e.target.closest('[data-rm]');
-    if (rm) { var t = +rm.dataset.rm; S.log = S.log.filter(function (x) { return x.t !== t; }); save(); renderDay(); renderGrid(); }
+    if (rm) { var t = +rm.dataset.rm; var gone = S.log.filter(function (x) { return x.t === t; })[0]; S.log = S.log.filter(function (x) { return x.t !== t; }); if (gone) touchDay(dateOfLog(gone)); save(); renderDay(); renderGrid(); }
   });
 
   /* ---------- registro de vontade ---------- */
@@ -613,14 +796,9 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var now = new Date();
     var entry = { t: now.getTime(), h: pick('c-hab') || 'cigarro', e: pickAll('c-emo'), i: +$('inten').value, a: pick('c-act'), u: pickAll('c-usei') };
     S.log.push(entry);
-    var note = '';
-    if (entry.a === 'cedi') {
-      var trec = day(todayKey(), true);
-      if (entry.h === 'outro') { trec.other = 'yes'; note = ' Outro hábito marcado hoje.'; }
-      else { trec.smoke = 'yes'; note = ' Cigarro marcado hoje, contador zerado.'; }
-    }
+    touchDay(todayKey());
     save(); resetForm(); closeLog();
-    toast('Vontade registrada às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.' + note);
+    toast('Vontade registrada às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + '.');
     selDate = todayKey(); viewY = now.getFullYear(); viewM = now.getMonth(); renderGrid(); renderDay(); renderStreak();
   });
 
@@ -737,7 +915,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     html += card('Vontades',
       '<div class="report-total">' + c.n + ' <small>' + (c.n === 1 ? 'registro' : 'registros') + '</small></div>' +
       (s.elig && p.elig ? cmp(c.n, p.cr.n, true, 'int', pn) : '<div class="report-compare">Sem período anterior para comparar.</div>') +
-      (c.n ? kv('Intensidade média', fmtNum(c.sum / c.n)) + kv('Cigarro / outro hábito', c.hab.cigarro + ' / ' + c.hab.outro) + kv('Vezes que cedi', String(c.cedi)) : '') +
+      (c.n ? kv('Intensidade média', fmtNum(c.sum / c.n)) + kv('Cigarro / outro hábito', c.hab.cigarro + ' / ' + c.hab.outro) : '') +
       dayBars(keys, function (k) { return c.byDay[k] || 0; }, function (v) { return v; }, mode === 'month'));
     // emoções
     var er = EMO.map(function (e) { return [e[1], c.emo[e[0]] || 0]; }).filter(function (r) { return r[1]; }).sort(function (a, b) { return b[1] - a[1]; });
@@ -786,7 +964,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   }
   $('weekContent').addEventListener('change', function (e) {
     var i = e.target; if (!i.dataset.w) return;
-    var wk = dkey(weekRange(weekOff).a); S.week[wk] = S.week[wk] || {}; S.week[wk][i.dataset.w] = i.checked; save();
+    var wk = dkey(weekRange(weekOff).a); S.week[wk] = S.week[wk] || {}; S.week[wk][i.dataset.w] = i.checked; touch('meta'); save();
     renderWeek(); var a = $('weekContent').querySelector('input[data-w]'); if (a) a.focus({ preventScroll: true });
   });
   $('wPrev').onclick = function () { weekOff--; renderWeek(); };
@@ -809,7 +987,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
   }
   $('onceCard').addEventListener('change', function (e) {
     var i = e.target; if (!i.dataset.o) return;
-    S.once[i.dataset.o] = i.checked; save(); renderOnce();
+    S.once[i.dataset.o] = i.checked; touch('meta'); save(); renderOnce();
     var a = $('onceCard').querySelector('input[data-o="' + i.dataset.o + '"]'); if (a) a.focus({ preventScroll: true });
   });
   $('exportBtn').onclick = function () {
@@ -825,8 +1003,11 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
       var o = JSON.parse($('importText').value.trim());
       var d = o && o.data ? o.data : o;
       if (!d || typeof d.days !== 'object') throw new Error('x');
-      var b = blank(); for (var k in b) { if (d[k] != null) b[k] = d[k]; }
-      S = b; if (!S.start) S.start = todayKey(); save(); $('importText').value = '';
+      Object.keys(d.days).forEach(function (k) { S.days[k] = mergeDay(S.days[k], d.days[k]); touchDay(k); });
+      (Array.isArray(d.log) ? d.log : []).forEach(function (x) { if (x && x.t && !S.log.some(function (y) { return y.t === x.t; })) { S.log.push(x); touchDay(dateOfLog(x)); } });
+      var mm = mergeMeta({ start: S.start, once: S.once, week: S.week }, { start: d.start, once: d.once, week: d.week });
+      S.start = mm.start || todayKey(); S.once = mm.once; S.week = mm.week; touch('meta');
+      save(); $('importText').value = '';
       renderGrid(); renderDay(); renderStreak(); toast('Dados importados');
     } catch (e) { toast('Texto inválido'); }
   };
@@ -835,7 +1016,7 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
     var b = this;
     if (b.dataset.arm === '1') {
       clearTimeout(clearT); b.dataset.arm = ''; b.textContent = 'Apagar tudo';
-      S = blank(); S.start = todayKey(); save(); renderGrid(); renderDay(); renderStreak(); toast('Dados apagados'); return;
+      var gone = localIds().concat(Object.keys(SYNC.last)); S = blank(); S.start = todayKey(); gone.forEach(function (id) { touch(id); }); touch('meta'); save(); renderGrid(); renderDay(); renderStreak(); toast('Dados apagados'); return;
     }
     b.dataset.arm = '1'; b.textContent = 'Toque de novo para apagar';
     clearT = setTimeout(function () { b.dataset.arm = ''; b.textContent = 'Apagar tudo'; }, 4000);
@@ -843,10 +1024,12 @@ legend{font-size:13px;font-weight:600;margin-bottom:8px;padding:0;}
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) return;
+    flush();
     renderGrid(); renderDay(); renderStreak(); if (current === 'semana') renderWeek(); if (current === 'mes') renderMonth();
   });
 
-  renderGrid(); renderDay(); renderStreak();
+  renderGrid(); renderDay(); renderStreak(); connectSync();
 })();
 </script>
+
 </html>
